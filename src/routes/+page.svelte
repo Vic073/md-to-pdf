@@ -22,7 +22,7 @@
     gfm: true,
   });
 
-  let markdownContent = $state("# Welcome to MD ↔ PDF Converter\n\nStart typing in Markdown here...\n\n## Features\n- **Live preview** as you type\n- Export to PDF\n- Import PDF → Markdown\n- Load/Save .md files");
+  let markdownContent = $state("# Welcome to MD to PDF Converter\n\nStart typing in Markdown here...\n\n## Features\n- **Live preview** as you type\n- Export to PDF\n- Import PDF to Markdown\n- Load/Save .md files");
   let previewHtml = $state("");
   let currentFilePath = $state<string | null>(null);
   let statusMessage = $state("Ready");
@@ -93,24 +93,22 @@
 
   async function exportToPdf() {
     try {
-      const filePath = await save({
-        filters: [{ name: "PDF", extensions: ["pdf"] }],
-        defaultPath: "document.pdf",
-      });
-      if (filePath) {
-        isProcessing = true;
-        statusMessage = "Generating PDF...";
-        // Use window.print() with a print-specific stylesheet via iframe
-        const printWindow = window.open("", "_blank");
-        if (!printWindow) {
-          statusMessage = "Error: Popup blocked. Please allow popups.";
-          isProcessing = false;
-          return;
-        }
-        printWindow.document.write(`
+      isProcessing = true;
+      statusMessage = "Preparing print-to-PDF view...";
+      const suggestedName = `${getFileStem()}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const printWindow = window.open("", "_blank");
+
+      if (!printWindow) {
+        statusMessage = "Unable to open print window.";
+        isProcessing = false;
+        return;
+      }
+
+      printWindow.document.write(`
           <!DOCTYPE html>
           <html>
           <head>
+            <title>${escapeHtml(suggestedName)}</title>
             <style>
               body {
                 font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -145,16 +143,14 @@
             <script>
               window.onload = function() {
                 window.print();
-                window.close();
               };
             <\/script>
           </body>
           </html>
         `);
-        printWindow.document.close();
-        statusMessage = "PDF export initiated. Use Ctrl+S to save.";
-        isProcessing = false;
-      }
+      printWindow.document.close();
+      statusMessage = "Choose Microsoft Print to PDF and save the file.";
+      isProcessing = false;
     } catch (e) {
       statusMessage = `Error exporting PDF: ${e}`;
       isProcessing = false;
@@ -201,25 +197,35 @@
       }
       consecutiveEmpty = 0;
 
-      // Check for potential headings (short lines, all caps, or ends with :)
-      if (trimmed.length < 60 && (trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !/^\d/.test(trimmed))) {
+      if (trimmed.length < 60 && trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !/^\d/.test(trimmed)) {
         result.push(`## ${trimmed}`);
         continue;
       }
 
-      // Bullet points if starts with - or * or number
-      if (/^[-•]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed)) {
+      if (/^([-*+]|\u2022)\s+/.test(trimmed) || /^\d+[.)]\s+/.test(trimmed)) {
         result.push(trimmed);
         continue;
       }
 
-      // Regular paragraph
       result.push(trimmed);
     }
 
     return result.join("\n");
   }
 
+  function getFileStem(): string {
+    const fileName = currentFilePath ? currentFilePath.split(/[/\\]/).pop() : "document";
+    return (fileName ?? "document").replace(/\.[^.]+$/, "").replace(/[<>:"/\\|?*\x00-\x1f]/g, "-") || "document";
+  }
+
+  function escapeHtml(value: string): string {
+    return value
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
   function handleKeydown(event: KeyboardEvent) {
     if ((event.ctrlKey || event.metaKey) && event.key === "s") {
       event.preventDefault();
@@ -242,7 +248,7 @@
   <!-- Header / Toolbar -->
   <header class="toolbar">
     <div class="toolbar-left">
-      <span class="app-title">MD ↔ PDF Converter</span>
+      <span class="app-title">MD to PDF Converter</span>
       <span class="file-indicator">{currentFilePath ? currentFilePath.split(/[/\\]/).pop() : "Untitled"}</span>
     </div>
     <div class="toolbar-center">
@@ -262,7 +268,7 @@
       <div class="divider"></div>
       <button class="toolbar-btn" onclick={importPdf} title="Import PDF and convert to Markdown" disabled={isProcessing}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/></svg>
-        PDF → MD
+        PDF to MD
       </button>
     </div>
     <div class="toolbar-right">

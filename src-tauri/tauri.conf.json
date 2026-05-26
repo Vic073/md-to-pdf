@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MD ↔ PDF Converter",
+  "productName": "MD to PDF Converter",
   "version": "0.1.0",
   "identifier": "com.victor-chilomo.md-pdf-converter",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "MD ↔ PDF Converter",
+        "title": "MD to PDF Converter",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
