@@ -503,7 +503,7 @@
     word-wrap: break-word;
   }
 
-  .markdown-body h1 {
+  :global(.markdown-body h1) {
     font-size: 1.8em;
     border-bottom: 2px solid #21262d;
     padding-bottom: 8px;
@@ -512,7 +512,7 @@
     font-weight: 600;
   }
 
-  .markdown-body h2 {
+  :global(.markdown-body h2) {
     font-size: 1.4em;
     border-bottom: 1px solid #21262d;
     padding-bottom: 6px;
@@ -521,45 +521,45 @@
     font-weight: 600;
   }
 
-  .markdown-body h3 {
+  :global(.markdown-body h3) {
     font-size: 1.2em;
     margin: 16px 0 8px;
     color: #bc8cff;
     font-weight: 600;
   }
 
-  .markdown-body h4 {
+  :global(.markdown-body h4) {
     font-size: 1em;
     margin: 12px 0 8px;
     color: #c9d1d9;
     font-weight: 600;
   }
 
-  .markdown-body p {
+  :global(.markdown-body p) {
     margin: 8px 0;
     line-height: 1.7;
   }
 
-  .markdown-body a {
+  :global(.markdown-body a) {
     color: #58a6ff;
     text-decoration: none;
   }
 
-  .markdown-body a:hover {
+  :global(.markdown-body a:hover) {
     text-decoration: underline;
   }
 
-  .markdown-body ul,
-  .markdown-body ol {
+  :global(.markdown-body ul),
+  :global(.markdown-body ol) {
     margin: 8px 0;
     padding-left: 24px;
   }
 
-  .markdown-body li {
+  :global(.markdown-body li) {
     margin: 4px 0;
   }
 
-  .markdown-body blockquote {
+  :global(.markdown-body blockquote) {
     border-left: 4px solid #e94560;
     margin: 12px 0;
     padding: 8px 16px;
@@ -568,7 +568,7 @@
     color: #8b949e;
   }
 
-  .markdown-body code {
+  :global(.markdown-body code) {
     background: #161b22;
     padding: 2px 6px;
     border-radius: 4px;
@@ -577,7 +577,7 @@
     color: #f0883e;
   }
 
-  .markdown-body pre {
+  :global(.markdown-body pre) {
     background: #161b22;
     padding: 16px;
     border-radius: 8px;
@@ -586,7 +586,7 @@
     border: 1px solid #21262d;
   }
 
-  .markdown-body pre code {
+  :global(.markdown-body pre code) {
     background: transparent;
     padding: 0;
     color: #c9d1d9;
@@ -594,65 +594,65 @@
     line-height: 1.5;
   }
 
-  .markdown-body table {
+  :global(.markdown-body table) {
     border-collapse: collapse;
     width: 100%;
     margin: 12px 0;
     font-size: 13px;
   }
 
-  .markdown-body th,
-  .markdown-body td {
+  :global(.markdown-body th),
+  :global(.markdown-body td) {
     border: 1px solid #30363d;
     padding: 8px 12px;
     text-align: left;
   }
 
-  .markdown-body th {
+  :global(.markdown-body th) {
     background: #161b22;
     font-weight: 600;
     color: #c9d1d9;
   }
 
-  .markdown-body tr:nth-child(even) {
+  :global(.markdown-body tr:nth-child(even)) {
     background: #0d1117;
   }
 
-  .markdown-body img {
+  :global(.markdown-body img) {
     max-width: 100%;
     border-radius: 6px;
     margin: 8px 0;
   }
 
-  .markdown-body hr {
+  :global(.markdown-body hr) {
     border: none;
     border-top: 1px solid #30363d;
     margin: 24px 0;
   }
 
-  .markdown-body strong {
+  :global(.markdown-body strong) {
     color: #ffa657;
   }
 
-  .markdown-body em {
+  :global(.markdown-body em) {
     color: #c9d1d9;
   }
 
-  .markdown-body ::-webkit-scrollbar {
+  :global(.markdown-body ::-webkit-scrollbar) {
     width: 8px;
     height: 8px;
   }
 
-  .markdown-body ::-webkit-scrollbar-track {
+  :global(.markdown-body ::-webkit-scrollbar-track) {
     background: #0d1117;
   }
 
-  .markdown-body ::-webkit-scrollbar-thumb {
+  :global(.markdown-body ::-webkit-scrollbar-thumb) {
     background: #30363d;
     border-radius: 4px;
   }
 
-  .markdown-body ::-webkit-scrollbar-thumb:hover {
+  :global(.markdown-body ::-webkit-scrollbar-thumb:hover) {
     background: #484f58;
   }
 
@@ -687,4 +687,3 @@
     background: #484f58;
   }
 </style>
-</write_to_file>
