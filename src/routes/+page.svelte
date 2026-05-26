@@ -2,7 +2,6 @@
   import { invoke } from "@tauri-apps/api/core";
   import { open, save } from "@tauri-apps/plugin-dialog";
   import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
-  import { onMount } from "svelte";
   import { marked } from "marked";
   import DOMPurify from "dompurify";
   import hljs from "highlight.js";
