@@ -1,10 +1,12 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
   import { open, save } from "@tauri-apps/plugin-dialog";
-  import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+  import { readTextFile, writeTextFile, writeFile } from "@tauri-apps/plugin-fs";
   import { marked } from "marked";
   import DOMPurify from "dompurify";
   import hljs from "highlight.js";
+  import jsPDF from "jspdf";
+  import html2canvas from "html2canvas";
 
   // Configure marked with highlight.js
   marked.setOptions({
@@ -28,12 +30,14 @@
   let statusMessage = $state("Ready");
   let isProcessing = $state(false);
 
+  // Reference to the preview content element
+  let previewContentEl: HTMLDivElement | undefined = $state();
+
   function renderPreview() {
     const raw = marked.parse(markdownContent) as string;
     previewHtml = DOMPurify.sanitize(raw);
   }
 
-  // Render on mount and whenever content changes
   $effect(() => {
     markdownContent;
     renderPreview();
@@ -91,68 +95,108 @@
     }
   }
 
-  async function exportToPdf() {
+  async function savePdf() {
+    if (!previewContentEl) {
+      statusMessage = "Preview not ready.";
+      return;
+    }
+
+    // Open save dialog first so user picks destination before we do heavy work
+    const suggestedName = `${getFileStem()}-${new Date().toISOString().slice(0, 10)}.pdf`;
+    const filePath = await save({
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+      defaultPath: suggestedName,
+    });
+    if (!filePath) return;
+
     try {
       isProcessing = true;
-      statusMessage = "Preparing print-to-PDF view...";
-      const suggestedName = `${getFileStem()}-${new Date().toISOString().slice(0, 10)}.pdf`;
-      const printWindow = window.open("", "_blank");
+      statusMessage = "Generating PDF...";
 
-      if (!printWindow) {
-        statusMessage = "Unable to open print window.";
-        isProcessing = false;
-        return;
+      // Build a light-themed clone of the preview for clean PDF output
+      const clone = previewContentEl.cloneNode(true) as HTMLElement;
+      clone.style.cssText = `
+        position: fixed;
+        top: 0; left: 0;
+        width: 794px;
+        padding: 48px 56px;
+        background: #ffffff;
+        color: #1a1a2e;
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 13px;
+        line-height: 1.7;
+        z-index: -9999;
+        visibility: hidden;
+      `;
+
+      // Override dark styles inside clone
+      const style = document.createElement("style");
+      style.textContent = `
+        h1 { font-size: 1.8em; border-bottom: 2px solid #e94560; padding-bottom: 8px; margin: 24px 0 16px; color: #e94560; }
+        h2 { font-size: 1.4em; border-bottom: 1px solid #ddd; padding-bottom: 6px; margin: 20px 0 12px; color: #0f3460; }
+        h3 { font-size: 1.2em; margin: 16px 0 8px; color: #533483; }
+        h4 { font-size: 1em; margin: 12px 0 8px; color: #333; }
+        p { margin: 8px 0; }
+        a { color: #0f3460; text-decoration: underline; }
+        ul, ol { margin: 8px 0; padding-left: 24px; }
+        li { margin: 3px 0; }
+        blockquote { border-left: 4px solid #e94560; margin: 12px 0; padding: 8px 16px; background: #f9f9f9; color: #555; }
+        code { background: #f0f0f0; padding: 2px 5px; border-radius: 3px; font-size: 0.88em; color: #c7254e; }
+        pre { background: #1e1e2e; padding: 14px; border-radius: 6px; overflow: hidden; margin: 12px 0; }
+        pre code { background: transparent; color: #cdd6f4; padding: 0; }
+        table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 12px; }
+        th, td { border: 1px solid #ccc; padding: 7px 10px; text-align: left; }
+        th { background: #f5f5f5; font-weight: 600; }
+        tr:nth-child(even) { background: #fafafa; }
+        img { max-width: 100%; }
+        hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+        strong { color: #c7254e; }
+      `;
+      clone.insertBefore(style, clone.firstChild);
+      document.body.appendChild(clone);
+
+      // Short tick so DOM is painted before canvas capture
+      await new Promise((r) => setTimeout(r, 50));
+
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        width: 794,
+        windowWidth: 794,
+      });
+
+      document.body.removeChild(clone);
+
+      // Build PDF (A4: 210 × 297 mm)
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();   // 210
+      const pageH = pdf.internal.pageSize.getHeight();  // 297
+      const imgW = pageW;
+      const imgH = (canvas.height * imgW) / canvas.width;
+
+      const imgData = canvas.toDataURL("image/png");
+      let heightLeft = imgH;
+      let yPos = 0;
+
+      pdf.addImage(imgData, "PNG", 0, yPos, imgW, imgH);
+      heightLeft -= pageH;
+
+      while (heightLeft > 0) {
+        yPos -= pageH;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, yPos, imgW, imgH);
+        heightLeft -= pageH;
       }
 
-      printWindow.document.write(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>${escapeHtml(suggestedName)}</title>
-            <style>
-              body {
-                font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-                font-size: 12pt;
-                line-height: 1.6;
-                color: #1a1a2e;
-                padding: 40px;
-                max-width: 210mm;
-                margin: 0 auto;
-              }
-              h1 { font-size: 2em; border-bottom: 2px solid #e94560; padding-bottom: 8px; color: #16213e; }
-              h2 { font-size: 1.5em; color: #0f3460; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-              h3 { font-size: 1.25em; color: #533483; }
-              code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
-              pre { background: #1a1a2e; color: #eaeaea; padding: 16px; border-radius: 6px; overflow-x: auto; }
-              pre code { background: transparent; color: inherit; padding: 0; }
-              blockquote { border-left: 4px solid #e94560; margin-left: 0; padding-left: 16px; color: #555; }
-              table { border-collapse: collapse; width: 100%; margin: 16px 0; }
-              th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
-              th { background: #f5f5f5; }
-              img { max-width: 100%; }
-              a { color: #e94560; text-decoration: none; }
-              hr { border: none; border-top: 1px solid #eee; margin: 24px 0; }
-              @media print {
-                body { padding: 0; }
-                @page { margin: 20mm; }
-              }
-            </style>
-          </head>
-          <body>
-            ${previewHtml}
-            <script>
-              window.onload = function() {
-                window.print();
-              };
-            <\/script>
-          </body>
-          </html>
-        `);
-      printWindow.document.close();
-      statusMessage = "Choose Microsoft Print to PDF and save the file.";
-      isProcessing = false;
+      // Write directly to disk via Tauri
+      const pdfBytes = new Uint8Array(pdf.output("arraybuffer") as ArrayBuffer);
+      await writeFile(filePath, pdfBytes);
+
+      statusMessage = `PDF saved: ${filePath}`;
     } catch (e) {
-      statusMessage = `Error exporting PDF: ${e}`;
+      statusMessage = `Error saving PDF: ${e}`;
+    } finally {
       isProcessing = false;
     }
   }
@@ -167,7 +211,6 @@
         isProcessing = true;
         statusMessage = "Extracting text from PDF...";
         const extractedText = await invoke<string>("extract_pdf_text", { path: selected });
-        // Convert extracted text to basic Markdown
         const md = textToBasicMarkdown(extractedText);
         markdownContent = md;
         currentFilePath = null;
@@ -187,12 +230,9 @@
 
     for (const line of lines) {
       const trimmed = line.trim();
-
       if (trimmed === "") {
         consecutiveEmpty++;
-        if (consecutiveEmpty <= 2) {
-          result.push("");
-        }
+        if (consecutiveEmpty <= 2) result.push("");
         continue;
       }
       consecutiveEmpty = 0;
@@ -201,15 +241,12 @@
         result.push(`## ${trimmed}`);
         continue;
       }
-
       if (/^([-*+]|\u2022)\s+/.test(trimmed) || /^\d+[.)]\s+/.test(trimmed)) {
         result.push(trimmed);
         continue;
       }
-
       result.push(trimmed);
     }
-
     return result.join("\n");
   }
 
@@ -218,14 +255,6 @@
     return (fileName ?? "document").replace(/\.[^.]+$/, "").replace(/[<>:"/\\|?*\x00-\x1f]/g, "-") || "document";
   }
 
-  function escapeHtml(value: string): string {
-    return value
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
   function handleKeydown(event: KeyboardEvent) {
     if ((event.ctrlKey || event.metaKey) && event.key === "s") {
       event.preventDefault();
@@ -238,6 +267,10 @@
     if ((event.ctrlKey || event.metaKey) && event.key === "o") {
       event.preventDefault();
       loadFile();
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === "p") {
+      event.preventDefault();
+      savePdf();
     }
   }
 </script>
@@ -261,9 +294,9 @@
         Save
       </button>
       <div class="divider"></div>
-      <button class="toolbar-btn" onclick={exportToPdf} title="Export to PDF" disabled={isProcessing}>
+      <button class="toolbar-btn btn-pdf" onclick={savePdf} title="Save as PDF (Ctrl+P)" disabled={isProcessing}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        Export PDF
+        {isProcessing ? "Generating…" : "Save PDF"}
       </button>
       <div class="divider"></div>
       <button class="toolbar-btn" onclick={importPdf} title="Import PDF and convert to Markdown" disabled={isProcessing}>
@@ -296,8 +329,9 @@
     <div class="preview-panel">
       <div class="panel-header">
         <span class="panel-title">Preview</span>
+        <span class="hint">Ctrl+P → Save PDF</span>
       </div>
-      <div class="preview-content">
+      <div class="preview-content" bind:this={previewContentEl}>
         {#if previewHtml}
           <div class="markdown-body">{@html previewHtml}</div>
         {:else}
@@ -408,6 +442,16 @@
     flex-shrink: 0;
   }
 
+  /* PDF button gets a subtle accent */
+  .btn-pdf {
+    border-color: #e9456040;
+    color: #e94560;
+  }
+  .btn-pdf:hover {
+    background: #e9456018;
+    border-color: #e94560;
+  }
+
   .divider {
     width: 1px;
     height: 24px;
@@ -428,7 +472,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 200px;
+    max-width: 220px;
   }
 
   /* ===== EDITOR CONTAINER ===== */
@@ -461,9 +505,11 @@
     flex-shrink: 0;
   }
 
-  .char-count {
+  .char-count, .hint {
     font-weight: 400;
     font-size: 11px;
+    text-transform: none;
+    letter-spacing: 0;
   }
 
   /* ===== EDITOR TEXTAREA ===== */
@@ -484,10 +530,6 @@
 
   .editor-textarea::placeholder {
     color: #484f58;
-  }
-
-  .editor-textarea:focus {
-    background: #0d1117;
   }
 
   /* ===== PREVIEW ===== */
@@ -643,24 +685,6 @@
     color: #c9d1d9;
   }
 
-  :global(.markdown-body ::-webkit-scrollbar) {
-    width: 8px;
-    height: 8px;
-  }
-
-  :global(.markdown-body ::-webkit-scrollbar-track) {
-    background: #0d1117;
-  }
-
-  :global(.markdown-body ::-webkit-scrollbar-thumb) {
-    background: #30363d;
-    border-radius: 4px;
-  }
-
-  :global(.markdown-body ::-webkit-scrollbar-thumb:hover) {
-    background: #484f58;
-  }
-
   .empty-preview {
     display: flex;
     align-items: center;
@@ -670,7 +694,7 @@
     font-style: italic;
   }
 
-  /* Scrollbar styles for the editor/preview */
+  /* Scrollbar styles */
   .editor-textarea::-webkit-scrollbar,
   .preview-content::-webkit-scrollbar {
     width: 8px;
