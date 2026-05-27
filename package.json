@@ -19,9 +19,8 @@
     "@tauri-apps/plugin-opener": "^2",
     "dompurify": "^3.4.6",
     "highlight.js": "^11.11.1",
-    "html2canvas": "^1.4.1",
-    "jspdf": "^4.2.1",
-    "marked": "^18.0.4"
+    "marked": "^18.0.4",
+    "pdfmake": "^0.3.9"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.6",
