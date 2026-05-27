@@ -8,9 +8,17 @@
   // @ts-ignore
   import pdfMake from "pdfmake/build/pdfmake";
   // @ts-ignore
-  import pdfFonts from "pdfmake/build/vfs_fonts";
+  import * as pdfFonts from "pdfmake/build/vfs_fonts";
 
-  pdfMake.vfs = pdfFonts.vfs;
+  const vfs = pdfFonts?.pdfMake?.vfs || (pdfFonts as any)?.default?.pdfMake?.vfs || (pdfFonts as any)?.default?.vfs || (pdfFonts as any)?.vfs || pdfFonts;
+  if (vfs) {
+    pdfMake.vfs = vfs;
+  }
+  if (typeof (pdfMake as any).addVirtualFileSystem === "function") {
+    try {
+      (pdfMake as any).addVirtualFileSystem(pdfFonts);
+    } catch (_) {}
+  }
 
   // ─── Marked setup ────────────────────────────────────────────────────────────
   marked.setOptions({
@@ -265,17 +273,30 @@
       };
 
       const pdfBytes = await new Promise<Uint8Array>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error("PDF generation timed out after 10 seconds."));
+        }, 10000);
+
         try {
-          pdfMake.createPdf(docDef).getBuffer((buf: any) => {
-            resolve(buf instanceof Uint8Array ? buf : new Uint8Array(buf));
+          const pdfDoc = pdfMake.createPdf(docDef, undefined, undefined, vfs);
+          pdfDoc.getBuffer((buf: any) => {
+            clearTimeout(timeout);
+            if (buf) {
+              resolve(buf instanceof Uint8Array ? buf : new Uint8Array(buf));
+            } else {
+              reject(new Error("Failed to retrieve generated PDF buffer."));
+            }
           });
-        } catch (err) { reject(err); }
+        } catch (err) {
+          clearTimeout(timeout);
+          reject(err);
+        }
       });
 
       await writeFile(fp, pdfBytes);
       statusMessage = `PDF saved — ${(pdfBytes.length / 1024).toFixed(0)} KB`;
     } catch (e) {
-      statusMessage = `PDF error: ${e}`;
+      statusMessage = `PDF error: ${e instanceof Error ? e.message : e}`;
       console.error(e);
     } finally {
       isProcessing = false;
